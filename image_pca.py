@@ -1,14 +1,12 @@
 """
-5-9-2016 Matthew Faytak
+5-9-2016 updated 3-9-2017 Matthew Faytak
 This script reads midpoint frames in from an experiment, performs PCA on the image data, 
-and returns a .csv file containing PC loadings and associated metadata. Does not currently
-run properly if run on multiple subjects at once, since pca object is initialized with all
-data in experiment directory. 
+and returns a .csv file containing PC loadings and associated metadata. Currently only runs on one subject at a time.
+This script contains the basic functionality of ultra_imagepca.py, but less tailored to my experiments' data
+(e.g. does not subset data in the way I need).
 ----
-Expected usage if stored in processing dir: $ python image_pca.py . (-f -v)
+Expected usage if stored in processing dir: $ python image_pca.py (-f -v -r -c) directory num_components
 ----
-The file you should be loading from is /media/sf_python/feedback/*.ipynb
-
 """
 from __future__ import absolute_import, division, print_function
 
@@ -27,6 +25,7 @@ import matplotlib.pyplot as plt
 from sklearn import decomposition
 from sklearn.decomposition import PCA
 
+# regular expression for target segments
 vre = re.compile(
          "^(?P<vowel>AA|AE|AH|AO|EH|ER|EY|IH|IY|OW|UH|UW)(?P<stress>\d)?$"
       )
@@ -34,11 +33,11 @@ vre = re.compile(
 # Read in and parse the arguments, getting directory info and whether or not data should flop
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", help="Experiment directory containing all subjects")
+parser.add_argument("num_components", help="Number of principal components to output")
 parser.add_argument("-v", "--visualize", help="Produce plots of PC loadings on fan",action="store_true")
 parser.add_argument("-f", "--flop", help="Horizontally flip the data", action="store_true")
 parser.add_argument("-c", "--convert", help="Scan-convert the data before analysis", action="store_true")
 parser.add_argument("-r", "--no_er", help="Run PCA without schwar in data set.", action="store_true")
-parser.add_argument("outfile", help="Desired output file, intended as .csv")
 args = parser.parse_args()
 
 try:
@@ -49,18 +48,21 @@ except IndexError:
     ArgumentParser.print_help
     sys.exit(2)
 
-# TODO right now this can only be run on one subject's baseline phase at a time. this should loop over subjects.
-# TODO alternately, accept STDIN argument for a single subject or series of subjects
-# for s in subjects:
-#    ... initialize PCA, do PCA, output
-
 e = Exp(expdir=args.directory)
 e.gather()
+
+# check for appropriate number of components
+if args.num_components > (len(e.acquisitions) - 1):
+    print("EXITING: Number of components requested definitely exceeds number to be produced")
+    sys.exit(2)
+    
+# create output file path
+pc_out = os.path.join(e.expdir,"pc_out.txt")
 
 frames = None
 threshhold = 0.020 # threshhold value in s for moving away from acoustic midpoint measure
 
-# subject = [] TODO add this in once subject loop is added 
+# subject = [] TODO add if subject loop is added 
 phase = []
 trial = []
 phone = []
@@ -77,9 +79,6 @@ for idx,a in enumerate(e.acquisitions):
             frames = np.empty([len(e.acquisitions)] + list(conv_img.shape))
         else:
             frames = np.empty([len(e.acquisitions)] + list(a.image_reader.get_frame(0).shape)) * np.nan
-    
-    a.gather()
-
 
     tg = str(a.abs_image_file + ".ch1.TextGrid")
     pm = audiolabel.LabelManager(from_file=tg, from_type="praat")
@@ -100,8 +99,6 @@ for idx,a in enumerate(e.acquisitions):
         mid, mid_lab, mid_repl = a.frame_at(v.center,missing_val="prev", convert=True)
     else:
         mid, mid_lab, mid_repl = a.frame_at(v.center,missing_val="prev")
-#	if args.mask:
-#	    pass
 
     if mid is None:
         if mid_repl is None:
@@ -118,11 +115,13 @@ for idx,a in enumerate(e.acquisitions):
 
 # # # generate PCA objects # # #
 
+# an example of subsetting.
 # remove all schwars, if desired (all ER1 outside of learning phase)
 if args.no_er:
     isnt_er = [f != "ER1" for f in phone]
     is_learning = [p == "learning" for p in phase]
     isnt_schwar = [a or b for a,b in zip(isnt_er,is_learning)]
+    # reduce size of array that PCA is to be run on
     frames = np.squeeze(frames.take(np.where(isnt_schwar),axis=0))
     phase = np.squeeze(np.array(phase).take(np.where(isnt_schwar),axis=0))
     trial = np.squeeze(np.array(trial).take(np.where(isnt_schwar),axis=0))
@@ -137,7 +136,7 @@ kept_phase = np.array(phase,str)[keep_indices]
 kept_frames = frames[keep_indices]
 kept_tstamp = tstamp[keep_indices]
 
-n_components = 4
+n_components = args.num_components
 pca = PCA(n_components=n_components)
 frames_reshaped = kept_frames.reshape([kept_frames.shape[0], kept_frames.shape[1]*kept_frames.shape[2]])
 
@@ -154,9 +153,6 @@ d = np.row_stack((headers,np.column_stack((kept_phase,kept_trial,kept_tstamp,kep
 np.savetxt(out_file, d, fmt="%s", delimiter =',')
 
 print("Data saved. Explained variance ratio of PCs: %s" % str(pca.explained_variance_ratio_))
-
-# TODO save component scores pixel-by-pixel in tabular/csv data such that average loadings by category can be reconstructed
-# TODO ask Keith exactly what this is
 
 # # # output images describing component min/max loadings # # #
 
