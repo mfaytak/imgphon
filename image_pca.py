@@ -18,7 +18,6 @@ import audiolabel
 import argparse
 
 # for plotting
-from PIL import Image
 import matplotlib.pyplot as plt
 
 # for PCA business
