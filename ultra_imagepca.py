@@ -23,14 +23,22 @@ from ultratils.exp import Exp
 from ultratils.utils import is_white_bpr
 from ultratils.utils import is_frozen_bpr
 
+import time
+
 # for PCA business
 from sklearn import decomposition
 from sklearn.decomposition import PCA
 
+start = time.time()
+
+vre = re.compile(
+         "^(?P<vowel>AA|AE|AH|AO|EH|ER|EY|IH|IY|OW|UH|UW)(?P<stress>\d)?$"
+    )
+
 # Read in and parse the arguments, getting directory info and whether or not data should flop
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", help="Experiment directory containing all subjects")
-parser.add_argument("num_components", help="Number of principal components to output")
+parser.add_argument("num_components", type=int, help="Number of principal components to output")
 parser.add_argument("-er", "--include_er", help="Run PCA over vowels including ER.", action="store_true")
 parser.add_argument("-r", "--include_r", help="Run PCA over vowels and R.", action="store_true")
 parser.add_argument("-l", "--include_l", help="Run PCA over vowels and L.", action="store_true")
