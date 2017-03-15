@@ -32,7 +32,7 @@ vre = re.compile(
 # Read in and parse the arguments, getting directory info and whether or not data should flop
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", help="Experiment directory containing all subjects")
-parser.add_argument("num_components", help="Number of principal components to output")
+parser.add_argument("num_components", type=int, help="Number of principal components to output")
 parser.add_argument("-v", "--visualize", help="Produce plots of PC loadings on fan",action="store_true")
 parser.add_argument("-f", "--flop", help="Horizontally flip the data", action="store_true")
 parser.add_argument("-c", "--convert", help="Scan-convert the data before analysis", action="store_true")
