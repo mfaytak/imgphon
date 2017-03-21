@@ -11,11 +11,9 @@ See arg parser below for details
 """
 from __future__ import absolute_import, division, print_function
 
-import os
-import re
+import os, sys, re
 import argparse
 import audiolabel
-import subprocess
 import numpy as np
 from scipy import ndimage
 import matplotlib.pyplot as plt
