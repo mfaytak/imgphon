@@ -260,7 +260,7 @@ np.savetxt(pc_out, d, fmt="%s", delimiter =',')
 # save pct variance explained to exp_var_out
 pve_headers = ["subj","pc","pct_exp"]
 pve_subj = np.array([subj_pref] * n_components) # make another array of same length as number of PCs
-d_pve = np.row_stack((pve_headers,np.column_stack((pc_labels,pca.explained_variance_ratio_))))
+d_pve = np.row_stack((pve_headers,np.column_stack((pve_subj,pc_labels,pca.explained_variance_ratio_))))
 np.savetxt(exp_var_out, d_pve, fmt="%s", delimiter = ',')
 
 print("Data saved. Explained variance ratio of PCs: %s" % str(pca.explained_variance_ratio_))
