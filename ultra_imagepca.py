@@ -89,7 +89,7 @@ for idx, st in enumerate(e.acquisitions):
             L_bool[idx] = True
 
 pc_out = os.path.join(e.expdir,"pc_out.txt")
-
+exp_var_out = os.path.join(e.expdir,"exp_var_out.txt")
 logfile = os.path.join(e.expdir,"issues_log.txt")
 
 frames = None
@@ -245,13 +245,23 @@ frames_reshaped = kept_frames.reshape([kept_frames.shape[0], kept_frames.shape[1
 pca.fit(frames_reshaped)
 analysis = pca.transform(frames_reshaped)
 
-meta_headers = ["phase","trial","timestamp","phone"]
-pc_headers = ["pc"+str(i+1) for i in range(0,n_components)] # determine number of PC columns in output; changes w.r.t. n_components
-headers = meta_headers + pc_headers
+# save trial-by-trial PC scores to pc_out
+subj_dir = os.path.split(e.abspath)[1] # strip subject info from dir name
+subj_pref = subj_dir.split('-')[0]
+subj = np.array([subj_pref] * analysis.shape[0]) # make array of same length as PC score data
 
-# save everything to pc_out for analysis.
-d = np.row_stack((headers,np.column_stack((kept_phase,kept_trial,kept_tstamp,kept_phone,analysis))))
+meta_headers = ["subj","phase","trial","timestamp","phone"]
+pc_labels = ["pc"+str(i+1) for i in range(0,n_components)] # determine number of PC columns in output; changes w.r.t. n_components
+headers = meta_headers + pc_labels
+
+d = np.row_stack((headers,np.column_stack((subj,kept_phase,kept_trial,kept_tstamp,kept_phone,analysis))))
 np.savetxt(pc_out, d, fmt="%s", delimiter =',')
+
+# save pct variance explained to exp_var_out
+pve_headers = ["subj","pc","pct_exp"]
+pve_subj = np.array([subj_pref] * n_components) # make another array of same length as number of PCs
+d_pve = np.row_stack((pve_headers,np.column_stack((pc_labels,pca.explained_variance_ratio_))))
+np.savetxt(exp_var_out, d_pve, fmt="%s", delimiter = ',')
 
 print("Data saved. Explained variance ratio of PCs: %s" % str(pca.explained_variance_ratio_))
 
