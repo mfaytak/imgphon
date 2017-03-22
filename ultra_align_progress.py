@@ -70,7 +70,7 @@ with open(praat_script, "w+") as f:
 	f.write("\tRead from file... 'directory$'/'soundfile$'\n")
 	f.write("\tsoundname$ = selected$ (\"Sound\")\n")
 	f.write("\tacqnumstart = index (soundfile$, \"/\")\n")
-	f.write("\tphase$ = mid$ (soundfile$, 1, acqnumstart - 1)\n")
+	f.write("\tphase$ = left$ (soundfile$, acqnumstart - 1)\n")
 	f.write("\tacqnumber$ = left$ (soundname$, 22)\n")
 	f.write("\tunderscoretgname$ = soundname$\n")
 	f.write("\tdottgname$ = acqnumber$ + \".bpr.ch1\"\n")
