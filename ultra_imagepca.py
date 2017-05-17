@@ -111,8 +111,6 @@ for idx,a in enumerate(e.acquisitions):
     # setup for PC and audio
     wav = a.abs_ch1_audio_file
     tg = os.path.splitext(wav)[0] + '.TextGrid'
-    stim_file = a.abs_stim_file
-    ts_file = os.path.join(a.abspath,'ts.txt')
     pm = audiolabel.LabelManager(from_file=tg, from_type="praat")
     v,m = pm.tier('phone').search(vre, return_match=True)[-1] # return last V = target V
     myword = pm.tier('word').label_at(v.center).text
@@ -132,7 +130,7 @@ for idx,a in enumerate(e.acquisitions):
             frames = np.empty([len(e.acquisitions)] + list(a.image_reader.get_frame(0).shape)) * np.nan
     
     phase.append(a.runvars.phase)
-    trial.append(idx) # TODO does this work for counterbalance order?
+    trial.append(idx)
     tstamp.append(a.timestamp)
 
     # HOOF fix - CMUdict has UW1 for the word
@@ -265,7 +263,6 @@ print("Data saved. Explained variance ratio of PCs: %s" % str(pca.explained_vari
 
 # # # output images describing component min/max loadings, if desired. # # #
 # not advisable for very large numbers of components.
-# TODO output average frame?
 
 if args.visualize:
     image_shape = (416,69)
