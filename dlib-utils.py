@@ -1,3 +1,12 @@
+from imutils import face_utils
+from PIL import Image, ImageDraw
+import numpy as np
+import imutils
+import dlib
+import cv2
+import os, subprocess, csv, glob
+import matplotlib.pyplot as plt
+
 def detect_landmarks(cv2_video_capture):
     """
     Input: a cv2.VideoCapture object (TODO change).
