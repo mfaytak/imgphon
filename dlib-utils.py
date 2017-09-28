@@ -88,7 +88,7 @@ def get_lip_aperture(shape):
     Can be used to define an ellipse to approximate the size and shape of the lip aperture.
     """
     x_diff = np.subtract(shape[64][0], shape[60][0])
-    y_diff = np.subtract(shape[66][1], shape[66][1])
+    y_diff = np.subtract(shape[66][1], shape[62][1])
     
     # try instead?
     # tuple(x-y for x, y in zip(a, b))
