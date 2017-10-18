@@ -7,20 +7,24 @@ import cv2
 import os, subprocess, csv, glob
 import matplotlib.pyplot as plt
 
-def detect_landmarks(cv2_video_capture):
+def detect_landmarks(my_ndarray):
     """
-    Input: a cv2.VideoCapture object (TODO change).
+    Input: an ndarray frame output from cv2.VideoCapture object.
     Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
     """
 
     # read in image TODO change to something more general like the commented-out line
-    gray = cv2.cvtColor(cv2_video_capture, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
     # gray = np.asarray(cv2image, dtype=np.uint8)
     
+    # TODO cheekpad obliteration happens here if remove_cheekpad=True
+    
     # run face detector to get bounding rectangle
+    # TODO pass detector object into function
     rect = detector(gray, 1)[0]
     
     # run landmark prediction on portion of image in face rectangle; output
+    # TODO pass predictor object into function
     shape = predictor(gray, rect)
     shape_np = face_utils.shape_to_np(shape)
     
@@ -74,7 +78,7 @@ def draw_landmarks(cv2_video_capture, shape, aperture_xy = False):
     # add text indicating measured lip aperture in px
     if aperture_xy:
         x,y = get_lip_aperture(shape)
-        add_string = "x={}, y={}".format(x,y)
+        add_string = "x={}, y={}".format(round(x,1),round(y,1))
         loc = tuple(np.subtract(shape[4], (200,0)))
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(out_image, add_string, loc, font, 0.8, (255,255,255), 2, cv2.LINE_AA)
@@ -83,15 +87,13 @@ def draw_landmarks(cv2_video_capture, shape, aperture_xy = False):
 
 def get_lip_aperture(shape):
     """
-    Inputs: a 68,2 ndarray "shape" object output by detect_landmarks.
-    Outputs: an x,y tuple of horizontal and vertical diameters of lip aperture. 
-    Can be used to define an ellipse to approximate the size and shape of the lip aperture.
+    Inputs: the typical 68,2 ndarray "shape" object output by detect_landmarks.
+    Outputs: a 2-tuple of horizontal and vertical diameters of the lip aperture, 
+     treating the horizontal line like the major axis of an ellipse,
+     and the vertical line like the minor axis.
     """
-    x_diff = np.subtract(shape[64][0], shape[60][0])
-    y_diff = np.subtract(shape[66][1], shape[62][1])
-    
-    # try instead?
-    # tuple(x-y for x, y in zip(a, b))
-    
-    return x_diff,y_diff
+    horizontal_axis = np.linalg.norm(shape[60] - shape[64])
+    vertical_axis = np.linalg.norm(shape[62] - shape[66])
+
+    return horizontal_axis,vertical_axis
     
