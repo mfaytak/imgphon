@@ -7,9 +7,11 @@ import cv2
 import os, subprocess, csv, glob
 import matplotlib.pyplot as plt
 
-def detect_landmarks(my_ndarray):
+def detect_landmarks(my_ndarray, detector=detector, predictor=predictor):
     """
-    Input: an ndarray frame output from cv2.VideoCapture object.
+    Inputs: an ndarray frame output from cv2.VideoCapture object, 
+            a detector of choice from dlib,
+            and a dlib face landmark predictor trained on data of choice.
     Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
     """
 
@@ -20,24 +22,22 @@ def detect_landmarks(my_ndarray):
     # TODO cheekpad obliteration happens here if remove_cheekpad=True
     
     # run face detector to get bounding rectangle
-    # TODO pass detector object into function
     rect = detector(gray, 1)[0]
     
     # run landmark prediction on portion of image in face rectangle; output
-    # TODO pass predictor object into function
     shape = predictor(gray, rect)
     shape_np = face_utils.shape_to_np(shape)
     
     return shape_np
     
-def draw_landmarks(cv2_video_capture, shape, aperture_xy = False):
+def draw_landmarks(my_ndarray, shape, aperture_xy = False):
     """
-    Inputs: a cv2.VideoCapture object (TODO change), and a (68,2) ndarray of x,y coords that dlib detects.
+    Inputs: an ndarray frame output from cv2.VideoCapture object, and a (68,2) ndarray of x,y coords that dlib detects.
     Outputs: an image with lines drawn over the detected landmarks; useful for testing and visualization.
     aperture_xy: if True, also draw (next to face) numerical values for x and y diameters of lip aperture.
     """
 
-    out_image = cv2_video_capture.copy()
+    out_image = my_ndarray.copy()
 
     for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
         if name == "mouth":
@@ -97,3 +97,23 @@ def get_lip_aperture(shape):
 
     return horizontal_axis,vertical_axis
     
+def get_video_frame(video, time):
+    """
+    Return the single frame closest to the given timepoint. Can then run detect_landmarks on the frame.
+    Inputs: video - an MXF file; time in seconds - format d.ddd (sec.msec), rounded to three decimal places.
+    Outputs: an ndarray image of the desired frame.
+    """
+    output_bmp = 'test3.bmp'
+    try:
+        os.remove(output_bmp)
+    except OSError:
+        pass
+    frame_get_args = ['ffmpeg', '-i', video, 
+                      '-vcodec', 'bmp', 
+                      '-ss', time,
+                      '-vframes', '1', 
+                      '-an', '-f', 'rawvideo',
+                       output_bmp]
+    subprocess.check_call(frame_get_args)
+    frame = cv2.imread(output_bmp)
+    return frame
