@@ -197,7 +197,6 @@ def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpa
             and a dlib face landmark predictor trained on data of choice.
     Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
     """
-
     # if cheekpad is initialized, replace cheekpads
     if cheekpad:
         my_ndarray = cheekpad.replace_cheekpads(my_ndarray)
@@ -215,7 +214,7 @@ def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpa
     
     return shape_np
     
-def draw_landmarks(my_ndarray, shape, aperture_xy=False):
+def draw_landmarks(my_ndarray, shape, aperture_xy = False):
     """
     Inputs: an ndarray frame output from cv2.VideoCapture object, and a (68,2) ndarray of x,y coords that dlib detects.
     Outputs: an image with lines drawn over the detected landmarks; useful for testing and visualization.
@@ -240,18 +239,18 @@ def draw_landmarks(my_ndarray, shape, aperture_xy=False):
                     continue
             cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
     
-    # drawing the cps with some more precision
-    # draw most of the outer perimeter of cheekpads
+    # drawing the mouth with some more precision
+    # draw most of the outer perimeter of lips
     jm,km = face_utils.FACIAL_LANDMARKS_IDXS['mouth']
     for idx in range(jm,jm+11): 
         pt1 = shape[idx]
         pt2 = shape[idx+1]
         cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
     
-    # draw the last segment for the outer perimiter of cheekpads
+    # draw the last segment for the outer perimiter of lips
     cv2.line(out_image, tuple(shape[48]), tuple(shape[59]), (255,255,255))
     
-    # draw the inner aperture of the cheekpads
+    # draw the inner aperture of the lips
     for idx in range(jm+12,km):
         pt1 = shape[idx]
         try:
