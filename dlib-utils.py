@@ -274,7 +274,7 @@ def get_lip_aperture(shape):
     """
     Inputs: the typical 68,2 ndarray "shape" object output by detect_landmarks.
     Outputs: a 2-tuple of horizontal and vertical diameters of the lip aperture, 
-     treating the horizontal line like the major axis of an elcheekpadse,
+     treating the horizontal line like the major axis of an ellipse,
      and the vertical line like the minor axis.
     """
     horizontal_axis = np.linalg.norm(shape[60] - shape[64])
