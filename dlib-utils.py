@@ -8,8 +8,8 @@ import cv2
 import os, subprocess, csv, glob
 import matplotlib.pyplot as plt
 
-class Cheekpad:
-    """ Cheekpad object that mediates finding and replacing of cheekpads.
+class CheekpadSegment:
+    """ CheekpadSegment object that mediates finding and replacing of cheekpads.
         Intended to be initiated at the beginning of detecting landmarks for 
         one subject if cheekpad replacement is needed.
     """
@@ -178,9 +178,9 @@ class Cheekpad:
         
         return new_mask
 
-    def replace_cheekpads(self, frame):
-        """ Input: frame nd_array, Cheekpad object
-            Output: frame with cheekpads replaced
+    def remove(self, frame):
+        """ Input: frame nd_array
+            Output: frame with cheekpads removed
         """
         (mask, output, box, height, width) = self.find_cheekpads(frame)
         cleaned = self.cheekpad_tidy(mask)
@@ -190,7 +190,7 @@ class Cheekpad:
         return frame
 
 
-def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpad=None):
+def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpad_segment=None):
     """
     Inputs: an ndarray frame output from cv2.VideoCapture object, 
             a detector of choice from dlib,
@@ -198,8 +198,8 @@ def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpa
     Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
     """
     # if cheekpad is initialized, replace cheekpads
-    if cheekpad:
-        my_ndarray = cheekpad.replace_cheekpads(my_ndarray)
+    if cheekpad_segment:
+        my_ndarray = cheekpad_segment.remove(my_ndarray)
 
     # read in image TODO change to something more general like the commented-out line
     gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
