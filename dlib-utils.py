@@ -8,19 +8,132 @@ import cv2
 import os, subprocess, csv, glob
 import matplotlib.pyplot as plt
 
+# instantiate dlib face detector and landmark predictor
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
+
+def get_video_frame(video, time):
+    """
+    Return the single frame closest to the given timepoint. Can then run detect_landmarks on the frame.
+    Inputs: video - an MXF file; time in seconds - format d.ddd (sec.msec), rounded to three decimal places.
+    Outputs: an ndarray image of the desired frame.
+    """
+    output_bmp = 'test3.bmp'
+    try:
+        os.remove(output_bmp)
+    except OSError:
+        pass
+    frame_get_args = ['ffmpeg', '-i', video, 
+                      '-vcodec', 'bmp', 
+                      '-ss', time,
+                      '-vframes', '1', 
+                      '-an', '-f', 'rawvideo',
+                       output_bmp]
+    subprocess.check_call(frame_get_args)
+    frame = cv2.imread(output_bmp)
+    return frame
+
+def detect_landmarks(my_ndarray, detector=detector, predictor=predictor):
+    """
+    Inputs: an ndarray frame output from cv2.VideoCapture object, 
+            a detector of choice from dlib,
+            and a dlib face landmark predictor trained on data of choice.
+    Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
+    """
+
+    # read in image TODO change to something more general like the commented-out line
+    gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
+    # gray = np.asarray(cv2image, dtype=np.uint8)
+    
+    # run face detector to get bounding rectangle
+    rect = detector(gray, 1)[0]
+    
+    # run landmark prediction on portion of image in face rectangle; output
+    shape = predictor(gray, rect)
+    shape_np = face_utils.shape_to_np(shape)
+    
+    return shape_np
+    
+def draw_landmarks(my_ndarray, shape, aperture_xy = False):
+    """
+    Inputs: an ndarray frame output from cv2.VideoCapture object, and a (68,2) ndarray of x,y coords that dlib detects.
+    Outputs: an image with lines drawn over the detected landmarks; useful for testing and visualization.
+    aperture_xy: if True, also draw (next to face) numerical values for x and y diameters of lip aperture.
+    """
+
+    out_image = my_ndarray.copy()
+
+    for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
+        if name == "mouth":
+            continue
+        j,k = face_utils.FACIAL_LANDMARKS_IDXS[name]
+        pts = np.array(shape[j:k], dtype=np.uint32)
+        for idx,pt in enumerate(pts):
+            pt1 = pt
+            try:
+                pt2 = pts[idx+1]
+            except IndexError:
+                if name == "left_eye" or name == "right_eye":
+                    pt2 = pts[0]
+                else:
+                    continue
+            cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
+    
+    # drawing the mouth with some more precision
+    # draw most of the outer perimeter of lips
+    jm,km = face_utils.FACIAL_LANDMARKS_IDXS['mouth']
+    for idx in range(jm,jm+11): 
+        pt1 = shape[idx]
+        pt2 = shape[idx+1]
+        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
+    
+    # draw the last segment for the outer perimiter of lips
+    cv2.line(out_image, tuple(shape[48]), tuple(shape[59]), (255,255,255))
+    
+    # draw the inner aperture of the lips
+    for idx in range(jm+12,km):
+        pt1 = shape[idx]
+        try:
+            pt2 = shape[idx+1]
+        except IndexError:
+            pt2 = shape[jm+12]
+        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
+        
+    # add text indicating measured lip aperture in px
+    if aperture_xy:
+        x,y = get_lip_aperture(shape)
+        add_string = "x={}, y={}".format(round(x,1),round(y,1))
+        loc = tuple(np.subtract(shape[4], (200,0)))
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(out_image, add_string, loc, font, 0.8, (255,255,255), 2, cv2.LINE_AA)
+        
+    return out_image
+
+def get_lip_aperture(shape):
+    """
+    Inputs: the typical 68,2 ndarray "shape" object output by detect_landmarks.
+    Outputs: a 2-tuple of horizontal and vertical diameters of the lip aperture, 
+     treating the horizontal line like the major axis of an ellipse,
+     and the vertical line like the minor axis.
+    """
+    horizontal_axis = np.linalg.norm(shape[60] - shape[64])
+    vertical_axis = np.linalg.norm(shape[62] - shape[66])
+
+    return horizontal_axis,vertical_axis
+
 class CheekpadSegment:
     """ CheekpadSegment object that mediates finding and replacing of cheekpads.
         Intended to be initiated at the beginning of detecting landmarks for 
         one subject if cheekpad replacement is needed.
     """
 
-    def __init__(self, initial_frame):
+    def __init__(self, frame):
         self.refPt = []
         self.cp_ROI = []
         self.color_points = []
         self.cp_color_upper = np.empty(3, dtype=int)
         self.cp_color_lower = np.empty(3, dtype=int)
-        _ = self.get_params(initial_frame)
+        _ = self.get_params(frame)
         self.avg_color = self.get_avg_color(frame)
         ''' TODO(?) count number of frames done for this subject, 
             prompt manual check of cheekpad-finding accuracy every x frames
@@ -156,27 +269,46 @@ class CheekpadSegment:
         """ Input: results of masking on lip image. 
             Output: evened-out, cleaned up image.
         """
-        se1 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
-        se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        # set up structuring elements
+        se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        #se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        kernel = np.ones((4,4),np.uint8)
+
+        # close
         mask_temp = 255 * mask.astype('uint8')
-        mask_closed = cv2.morphologyEx(mask_temp, cv2.MORPH_CLOSE, se1)
-        mask_dilated = cv2.morphologyEx(mask_closed, cv2.MORPH_OPEN, se2)
+        mask_closed = cv2.morphologyEx(mask_temp, cv2.MORPH_CLOSE, se)
         
-        # find all blobs
-        blobs, number_of_blobs = ndimage.label(mask)
-        blob_areas = ndimage.sum(mask, blobs, index=range(blobs.max() + 1))
+        # find all blobs and remove the small ones (speckles)
+        blobs, number_of_blobs = ndimage.label(mask_closed)
+        blob_areas = ndimage.sum(mask_closed, blobs, index=range(blobs.max() + 1))
         area_filter = (blob_areas < 1500)
         blobs[area_filter[blobs]] = 0 # only include blobs with area >= 1500
+
+        # dilate
+        mask_temp = 255 * blobs.astype('uint8')
+        mask_dilated = cv2.dilate(mask_temp, kernel, iterations=4)
+
+        # close again
+        mask_final = cv2.morphologyEx(mask_dilated, cv2.MORPH_CLOSE, se)
         
-        mask = blobs.astype('bool').astype(int)
-        mask_h, mask_w = mask.shape
+        # undo middle third of mask
+        mask_final = mask_final.astype('bool').astype(int)
+        mask_h, mask_w = mask_final.shape
         x_buf_l = int(round(mask_w / 3))
         x_buf_r = int(round(mask_w * (2/3)))
-        new_mask = np.zeros(mask.shape)
-        new_mask[:,0:x_buf_l] = mask[:,0:x_buf_l]
-        new_mask[:,x_buf_r:] = mask[:,x_buf_r:]
+        out_mask = np.zeros(mask_final.shape)
+        out_mask[:,0:x_buf_l] = mask_final[:,0:x_buf_l]
+        out_mask[:,x_buf_r:] = mask_final[:,x_buf_r:]
+
+        # finally remove any remaining small blobs and return
+        blobs, number_of_blobs = ndimage.label(out_mask)
+        blob_areas = ndimage.sum(out_mask, blobs, index=range(blobs.max() + 1))
+        area_filter = (blob_areas < 2000)
+        blobs[area_filter[blobs]] = 0 # only include blobs with area >= 2000
+
+        out_mask = blobs.astype('bool').astype(int)
         
-        return new_mask
+        return out_mask
 
     def remove(self, frame):
         """ Input: frame nd_array
@@ -189,115 +321,44 @@ class CheekpadSegment:
         frame[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]] = cps
         return frame
 
+def remove_helmet(image, lower=[130, 120, 130], upper=[255, 255, 255]): 
+    """
+    Filters image for a range of colors that tends to correspond to the ultrasound helmet. 
+      The pixels matching the color criteria are used as a mask to remove the helmet segment.
+      Best applied after cheekpad removal has been run. (?)
+    Inputs: ndarray image frame, lower and upper bound BGR values for helmet segment
+    Outputs: cleaned-up helmet mask (tidy_helmet); BGR output with mask applied.
+    """
+    # define brightly colored segment of the image
+    array_lower = np.array(lower, dtype = "uint8")
+    array_upper = np.array(upper, dtype = "uint8")
+    color_mask = cv2.inRange(image, array_lower, array_upper)
+    color_segment = color_mask > 0
+    
+    # define region that is redder than it is green
+    red_green_segment = image[:,:,2] > image[:,:,1]
+    helmet_mask = np.invert(color_mask)
+    
+    # define the helmet as the part that's not very red, but is very bright
+    helmet_segment = np.logical_and(np.invert(red_green_segment),color_segment)
+    
+    # TODO dilate the helmet segment to cover up as much edge as possible
+    kernel = np.ones((12,12),np.uint8)
+    helmet_segment_adj = np.array(helmet_segment, dtype=np.uint8)
+    closed_segment = cv2.morphologyEx(helmet_segment_adj, cv2.MORPH_CLOSE, kernel)
+    # TODO make kernel smaller
+    second_kernel = np.ones((8,8),np.uint8)
+    final_segment = cv2.dilate(closed_segment,second_kernel,iterations = 1)
+    final_segment = np.array(final_segment, dtype=bool)
+    
+    # clean up small contiguous regions of pixels that remain
+    blobs, num_of_blobs = ndimage.label(final_segment)
+    blob_areas = ndimage.sum(final_segment, blobs, index=range(blobs.max() + 1))
+    # TODO scale to pixel density of frame
+    blobs[np.where(blob_areas < 1000)] = 0 # removes any contiguous pixel regions with area < 200
+    tidy_helmet = blobs > 0 # convert back to bool
 
-def detect_landmarks(my_ndarray, detector=detector, predictor=predictor, cheekpad_segment=None):
-    """
-    Inputs: an ndarray frame output from cv2.VideoCapture object, 
-            a detector of choice from dlib,
-            and a dlib face landmark predictor trained on data of choice.
-    Output: a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
-    """
-    # if cheekpad is initialized, replace cheekpads
-    if cheekpad_segment:
-        my_ndarray = cheekpad_segment.remove(my_ndarray)
+    # remove helmet segment from image and return
+    output = cv2.bitwise_and(image, image, mask = np.array(np.invert(tidy_helmet), dtype='uint8'))
 
-    # read in image TODO change to something more general like the commented-out line
-    gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
-    # gray = np.asarray(cv2image, dtype=np.uint8)
-    
-    # run face detector to get bounding rectangle
-    rect = detector(gray, 1)[0]
-    
-    # run landmark prediction on portion of image in face rectangle; output
-    shape = predictor(gray, rect)
-    shape_np = face_utils.shape_to_np(shape)
-    
-    return shape_np
-    
-def draw_landmarks(my_ndarray, shape, aperture_xy = False):
-    """
-    Inputs: an ndarray frame output from cv2.VideoCapture object, and a (68,2) ndarray of x,y coords that dlib detects.
-    Outputs: an image with lines drawn over the detected landmarks; useful for testing and visualization.
-    aperture_xy: if True, also draw (next to face) numerical values for x and y diameters of lip aperture.
-    """
-
-    out_image = my_ndarray.copy()
-
-    for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
-        if name == "mouth":
-            continue
-        j,k = face_utils.FACIAL_LANDMARKS_IDXS[name]
-        pts = np.array(shape[j:k], dtype=np.uint32)
-        for idx,pt in enumerate(pts):
-            pt1 = pt
-            try:
-                pt2 = pts[idx+1]
-            except IndexError:
-                if name == "left_eye" or name == "right_eye":
-                    pt2 = pts[0]
-                else:
-                    continue
-            cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
-    
-    # drawing the mouth with some more precision
-    # draw most of the outer perimeter of lips
-    jm,km = face_utils.FACIAL_LANDMARKS_IDXS['mouth']
-    for idx in range(jm,jm+11): 
-        pt1 = shape[idx]
-        pt2 = shape[idx+1]
-        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
-    
-    # draw the last segment for the outer perimiter of lips
-    cv2.line(out_image, tuple(shape[48]), tuple(shape[59]), (255,255,255))
-    
-    # draw the inner aperture of the lips
-    for idx in range(jm+12,km):
-        pt1 = shape[idx]
-        try:
-            pt2 = shape[idx+1]
-        except IndexError:
-            pt2 = shape[jm+12]
-        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255))
-        
-    # add text indicating measured lip aperture in px
-    if aperture_xy:
-        x,y = get_lip_aperture(shape)
-        add_string = "x={}, y={}".format(round(x,1),round(y,1))
-        loc = tuple(np.subtract(shape[4], (200,0)))
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(out_image, add_string, loc, font, 0.8, (255,255,255), 2, cv2.LINE_AA)
-        
-    return out_image
-
-def get_lip_aperture(shape):
-    """
-    Inputs: the typical 68,2 ndarray "shape" object output by detect_landmarks.
-    Outputs: a 2-tuple of horizontal and vertical diameters of the lip aperture, 
-     treating the horizontal line like the major axis of an ellipse,
-     and the vertical line like the minor axis.
-    """
-    horizontal_axis = np.linalg.norm(shape[60] - shape[64])
-    vertical_axis = np.linalg.norm(shape[62] - shape[66])
-
-    return horizontal_axis,vertical_axis
-    
-def get_video_frame(video, time):
-    """
-    Return the single frame closest to the given timepoint. Can then run detect_landmarks on the frame.
-    Inputs: video - an MXF file; time in seconds - format d.ddd (sec.msec), rounded to three decimal places.
-    Outputs: an ndarray image of the desired frame.
-    """
-    output_bmp = 'test3.bmp'
-    try:
-        os.remove(output_bmp)
-    except OSError:
-        pass
-    frame_get_args = ['ffmpeg', '-i', video, 
-                      '-vcodec', 'bmp', 
-                      '-ss', time,
-                      '-vframes', '1', 
-                      '-an', '-f', 'rawvideo',
-                       output_bmp]
-    subprocess.check_call(frame_get_args)
-    frame = cv2.imread(output_bmp)
-    return frame
+    return tidy_helmet, output
