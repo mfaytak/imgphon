@@ -122,7 +122,7 @@ def get_lip_aperture(shape):
     return horizontal_axis,vertical_axis
 
 class CheekpadSegment:
-    """ CheekpadSegment object that mediates finding and replacing of cheekpads.
+    """ CheekpadSegment object that mediates finding and removing of cheekpads.
         Intended to be initiated at the beginning of detecting landmarks for 
         one subject if cheekpad replacement is needed.
     """
@@ -174,7 +174,7 @@ class CheekpadSegment:
             if event == cv2.EVENT_LBUTTONUP:
                 self.refPt.append((x, y))
 
-        window_name = "click around the outer edges of both cheekpads, press q when done"
+        window_name = "click OUTSIDE the outer edges of both cheekpads, press q when done"
         cv2.namedWindow(window_name)
         cv2.setMouseCallback(window_name, mouse_click)
         
@@ -206,43 +206,37 @@ class CheekpadSegment:
         self.cp_ROI.append(int(maxx))
         self.cp_ROI.append(int(maxy))
         
-        (mask, output, box, height, width) = self.find_cheekpads(frame)
+        (mask, output) = self.find_cheekpads(frame)
         
         setup_trackbars()  # the color sliders
 
         while True:
             get_trackbar_values()
-            (mask, output, box, height, width) = self.find_cheekpads(frame)
-            cv2.imshow(tb_name, output)  
+            (mask, output) = self.find_cheekpads(frame)
+            output_h, output_w, _ = output.shape
+            output_copy = np.copy(output)
+            output_copy[:, output_w // 3] = 255
+            output_copy[:, output_w * 2 // 3] = 255
+            cv2.imshow(tb_name, output_copy)  
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
             
         cv2.destroyWindow(tb_name)
         cv2.destroyWindow("Preview")
-        return(mask, output, box, height, width)
+        return (mask, output)
 
     def find_cheekpads(self, frame):
-        """ Using filter params and cp region of interest, provide height, width, etc of cps. """
+        """ Using filter params and cheekpad_segment region of interest, 
+            returns the cheekpad mask and masked output of the frame.
+        """
 
         cp_ROI_copy = frame[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]] # isolate cps from frame
-        box = np.array([[0,0], [0,1], [1,1], [1,0]])  # initialize variables
-        height = 0
-        width = 0
 
         mask = 255 - cv2.inRange(cp_ROI_copy, self.cp_color_lower, self.cp_color_upper) # binary mask, TODO invert for display
-        output = cv2.bitwise_and(cp_ROI_copy, cp_ROI_copy, mask = mask) # masked original image.
+        output = cv2.bitwise_and(cp_ROI_copy, cp_ROI_copy, mask=mask) # masked original image.
 
-        # use the contours of the mask to find width and height of found cps
-        cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
-        if len(cnts) > 0:
-            c = max(cnts, key=cv2.contourArea)
-            rect = cv2.minAreaRect(c)
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
-            height = max(c[...,0,1]) - min(c[...,0,1])
-            width = max(c[...,0,0]) - min(c[...,0,0])
-        return (mask.astype(bool).astype(int), output, box, height, width) 
+        return (mask.astype(bool).astype(int), output)
             
     def get_avg_color(self, frame):
         """ Gets colors from image selected by user and returns their average. """
@@ -314,51 +308,158 @@ class CheekpadSegment:
         """ Input: frame nd_array
             Output: frame with cheekpads removed
         """
-        (mask, output, box, height, width) = self.find_cheekpads(frame)
-        cleaned = self.cheekpad_tidy(mask)
-        cps = np.copy(frame[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]])
-        cps[np.where(cleaned)] = self.avg_color
-        frame[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]] = cps
-        return frame
+        frame_copy = np.copy(frame)
+        (mask, output) = self.find_cheekpads(frame_copy)
+        cleaned_mask = self.cheekpad_tidy(mask)
+        cps = np.copy(frame_copy[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]])
+        cps[np.where(cleaned_mask)] = self.avg_color
+        frame_copy[self.cp_ROI[1]:self.cp_ROI[3], self.cp_ROI[0]:self.cp_ROI[2]] = cps
+        if self.check_adjust(frame_copy):
+            self.get_params(frame)
+            return self.remove(frame)
+        return cleaned_mask, frame_copy
 
-def remove_helmet(image, lower=[130, 120, 130], upper=[255, 255, 255]): 
+    def check_adjust(self, output):
+        """ Returns True if user deems cheekpad removal output as unacceptable. False otherwise."""
+        self.adjust = False
+
+        def left_right_click(event, x, y, flags, param):
+            if event == 2:
+                self.adjust = True
+            if event == cv2.EVENT_LBUTTONDOWN:
+                self.adjust = False
+
+        window_name = 'is this cheekpad removal ok? left click if ok, right click to adjust; q to submit'
+
+        cv2.namedWindow(window_name)
+        cv2.setMouseCallback(window_name, left_right_click)
+        cv2.imshow(window_name, output)
+        cv2.waitKey(0)
+
+        return self.adjust
+
+
+class HelmetSegment:
+    """ HelmetSegment object that mediates finding and removing of helmet.
+        One instance can be used across multiple subjects. (?)
     """
-    Filters image for a range of colors that tends to correspond to the ultrasound helmet. 
-      The pixels matching the color criteria are used as a mask to remove the helmet segment.
-      Best applied after cheekpad removal has been run. (?)
-    Inputs: ndarray image frame, lower and upper bound BGR values for helmet segment
-    Outputs: cleaned-up helmet mask (tidy_helmet); BGR output with mask applied.
-    """
-    # define brightly colored segment of the image
-    array_lower = np.array(lower, dtype = "uint8")
-    array_upper = np.array(upper, dtype = "uint8")
-    color_mask = cv2.inRange(image, array_lower, array_upper)
-    color_segment = color_mask > 0
-    
-    # define region that is redder than it is green
-    red_green_segment = image[:,:,2] > image[:,:,1]
-    helmet_mask = np.invert(color_mask)
-    
-    # define the helmet as the part that's not very red, but is very bright
-    helmet_segment = np.logical_and(np.invert(red_green_segment),color_segment)
-    
-    # TODO dilate the helmet segment to cover up as much edge as possible
-    kernel = np.ones((12,12),np.uint8)
-    helmet_segment_adj = np.array(helmet_segment, dtype=np.uint8)
-    closed_segment = cv2.morphologyEx(helmet_segment_adj, cv2.MORPH_CLOSE, kernel)
-    # TODO make kernel smaller
-    second_kernel = np.ones((8,8),np.uint8)
-    final_segment = cv2.dilate(closed_segment,second_kernel,iterations = 1)
-    final_segment = np.array(final_segment, dtype=bool)
-    
-    # clean up small contiguous regions of pixels that remain
-    blobs, num_of_blobs = ndimage.label(final_segment)
-    blob_areas = ndimage.sum(final_segment, blobs, index=range(blobs.max() + 1))
-    # TODO scale to pixel density of frame
-    blobs[np.where(blob_areas < 1000)] = 0 # removes any contiguous pixel regions with area < 200
-    tidy_helmet = blobs > 0 # convert back to bool
 
-    # remove helmet segment from image and return
-    output = cv2.bitwise_and(image, image, mask = np.array(np.invert(tidy_helmet), dtype='uint8'))
+    def __init__(self):
+        lower = [130, 120, 130]
+        upper = [255, 255, 255]
+        self.array_lower = np.array(lower, dtype="uint8")
+        self.array_upper = np.array(upper, dtype="uint8")
 
-    return tidy_helmet, output
+    def helmet_tidy(self, helmet_segment):
+        """ Returns a cleaned-up helmet_segment mask."""
+        # closing the helmet segment to cover up as much edge as possible
+        kernel = np.ones((12,12),np.uint8)
+        helmet_segment_adj = np.array(helmet_segment, dtype=np.uint8)
+        closed_segment = cv2.morphologyEx(helmet_segment_adj, cv2.MORPH_CLOSE, kernel)
+        # make kernel smaller
+        second_kernel = np.ones((8,8),np.uint8)
+        final_segment = cv2.dilate(closed_segment,second_kernel,iterations = 1)
+        final_segment = np.array(final_segment, dtype=bool)
+        
+        # clean up small contiguous regions of pixels that remain
+        blobs, num_of_blobs = ndimage.label(final_segment)
+        blob_areas = ndimage.sum(final_segment, blobs, index=range(blobs.max() + 1))
+        # TODO scale to pixel density of frame
+        blobs[np.where(blob_areas < 1000)] = 0 # removes any contiguous pixel regions with area < 200
+        tidy_helmet = blobs > 0 # convert back to bool
+
+        return tidy_helmet
+
+    def find_helmet(self, image):
+        """ Returns the helmet mask and masked image output."""
+
+        color_mask = cv2.inRange(image, self.array_lower, self.array_upper)
+        color_segment = color_mask > 0
+        
+        # define region that is redder than it is green
+        red_green_segment = image[:,:,2] > image[:,:,1]
+        
+        # define the helmet as the part that's not very red, but is very bright
+        mask = np.logical_and(np.invert(red_green_segment), color_segment)
+
+        # masked image (no tidying done)
+        output = cv2.bitwise_and(image, image, mask=mask.astype('uint8'))
+        return mask, output
+
+    def remove(self, image):
+        """ Returns helmet mask and image with helmet removed.
+            Mediates checking if output is acceptable.
+        """
+        mask, output = self.find_helmet(image)
+        mask = self.helmet_tidy(mask)
+        output = cv2.bitwise_and(image, image, mask=np.array(np.invert(mask), dtype='uint8'))
+        if self.check_adjust(output):
+            self.reset_params(image)
+            self.avg_color = self.get_avg_color(frame)
+            return self.remove(image)
+        return mask, output
+
+    def check_adjust(self, output):
+        """ Returns True if user deems output of helmet removal as unacceptable. False if not."""
+
+        self.adjust = False
+
+        def left_right_click(event, x, y, flags, param):
+            if event == 2:
+                self.adjust = True
+            if event == cv2.EVENT_LBUTTONDOWN:
+                self.adjust = False
+
+        window_name = 'is this helmet removal ok? left click if ok, right click to adjust; q to submit'
+
+        cv2.namedWindow(window_name)
+        cv2.setMouseCallback(window_name, left_right_click)
+        cv2.imshow(window_name, output)
+        cv2.waitKey(0)
+
+        return self.adjust
+
+    def reset_params(self, image):
+        """ Reintialisation of self.array_lower and self.array_upper values by user manually."""
+
+        tb_name = "adjust trackbar to mask helmet, press q when done"
+
+        def callback(value):
+            pass
+
+        def setup_trackbars():
+            """ Produces trackbars that can be used to adjust array_lower and array_upper values."""
+
+            cv2.namedWindow(tb_name, 0)
+            cv2.resizeWindow(tb_name, 800, 500)
+
+            # only adjust lower color levels
+            c = 0
+            for j in 'BGR':
+                v = self.array_lower[c]
+                c += 1
+                cv2.createTrackbar("{}_{}".format(j, 'MIN'), tb_name, v, 255, callback)
+
+        def get_trackbar_values():
+            """ Resets self.array_upper and/or self.array_lower on basis of trackbar position. """
+
+            c = 0
+            for j in "BGR":
+                v = cv2.getTrackbarPos("{}_{}".format(j, "MIN"), tb_name)
+                self.array_lower[c] = v
+                c += 1
+        
+        mask, output = self.find_helmet(frame)
+        setup_trackbars()  # the color sliders
+
+        while True:
+            get_trackbar_values()
+            (mask, output) = self.find_helmet(frame)
+            cv2.imshow(tb_name, output)  
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+            
+        cv2.destroyWindow(tb_name)
+        cv2.destroyWindow("Preview")
+        return (mask, output)
