@@ -127,13 +127,13 @@ class CheekpadSegment:
         one subject if cheekpad replacement is needed.
     """
 
-    def __init__(self, initial_frame):
+    def __init__(self, frame):
         self.refPt = []
         self.cp_ROI = []
         self.color_points = []
         self.cp_color_upper = np.empty(3, dtype=int)
         self.cp_color_lower = np.empty(3, dtype=int)
-        _ = self.get_params(initial_frame)
+        _ = self.get_params(frame)
         self.avg_color = self.get_avg_color(frame)
         ''' TODO(?) count number of frames done for this subject, 
             prompt manual check of cheekpad-finding accuracy every x frames
@@ -260,31 +260,49 @@ class CheekpadSegment:
         return np.rint(np.average(self.color_points, axis=0))
 
     def cheekpad_tidy(self, mask):
-        """ Input: results of masking on cheekpad image. 
+        """ Input: results of masking on lip image. 
             Output: evened-out, cleaned up image.
         """
-        mask_h, mask_w = mask.shape
-        x_buf_l = int(round(mask_w / 3))
-        x_buf_r = int(round(mask_w * (2/3)))
-        new_mask = np.zeros(mask.shape)
-        new_mask[:,0:x_buf_l] = mask[:,0:x_buf_l]
-        new_mask[:,x_buf_r:] = mask[:,x_buf_r:]
-        mask = new_mask
+        # set up structuring elements
+        se = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        #se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (8, 8))
+        kernel = np.ones((4,4),np.uint8)
 
-        se1 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3))
-        se2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        # close
         mask_temp = 255 * mask.astype('uint8')
-        mask_closed = cv2.morphologyEx(mask_temp, cv2.MORPH_CLOSE, se1)
-        mask_dilated = cv2.morphologyEx(mask_closed, cv2.MORPH_OPEN, se2)
+        mask_closed = cv2.morphologyEx(mask_temp, cv2.MORPH_CLOSE, se)
         
-        # find all blobs
-        blobs, number_of_blobs = ndimage.label(mask_dilated)
-        blob_areas = ndimage.sum(mask, blobs, index=range(blobs.max() + 1))
+        # find all blobs and remove the small ones (speckles)
+        blobs, number_of_blobs = ndimage.label(mask_closed)
+        blob_areas = ndimage.sum(mask_closed, blobs, index=range(blobs.max() + 1))
         area_filter = (blob_areas < 1500)
         blobs[area_filter[blobs]] = 0 # only include blobs with area >= 1500
+
+        # dilate
+        mask_temp = 255 * blobs.astype('uint8')
+        mask_dilated = cv2.dilate(mask_temp, kernel, iterations=4)
+
+        # close again
+        mask_final = cv2.morphologyEx(mask_dilated, cv2.MORPH_CLOSE, se)
         
-        mask = blobs.astype('bool').astype(int)
-        return mask
+        # undo middle third of mask
+        mask_final = mask_final.astype('bool').astype(int)
+        mask_h, mask_w = mask_final.shape
+        x_buf_l = int(round(mask_w / 3))
+        x_buf_r = int(round(mask_w * (2/3)))
+        out_mask = np.zeros(mask_final.shape)
+        out_mask[:,0:x_buf_l] = mask_final[:,0:x_buf_l]
+        out_mask[:,x_buf_r:] = mask_final[:,x_buf_r:]
+
+        # finally remove any remaining small blobs and return
+        blobs, number_of_blobs = ndimage.label(out_mask)
+        blob_areas = ndimage.sum(out_mask, blobs, index=range(blobs.max() + 1))
+        area_filter = (blob_areas < 2000)
+        blobs[area_filter[blobs]] = 0 # only include blobs with area >= 2000
+
+        out_mask = blobs.astype('bool').astype(int)
+        
+        return out_mask
 
     def remove(self, frame):
         """ Input: frame nd_array
