@@ -1,12 +1,14 @@
-# image-pca
-Python toolkit for feature extraction from, and dimensionality reduction of, video and ultrasound for data-driven articulatory phonetic analysis of lip and tongue shapes. Primarily built on `scikit-learn`, `opencv3`, and `dlib`.
+# imgphon
+Python toolkit for articulatory **phon**etic analysis of **im**a**g**e data: lingual ultrasound and video of facial landmarks. Facial landmark detection is carried out using `dlib` on images preprocessed with `opencv3` and `ndimage`. (Ultrasound feature extraction TBA.) Dimensionality reduction is carried out using `scikit-learn`.
+
+Files in the `scripts` directory also carry out forced alignment and acoustic analysis routines from various stages of writing my dissertation; these and the ultrasound analysis routines they coincide with will eventually be converted to functions in a sensible namespace.
 
 # Getting started
 ### Installing dependencies
-`opencv3`, `ffmpeg`, and `dlib` are all required. The dependencies for `dlib` are large and rather complex. We have used the installation instructions for Unix-type systems at goo.gl/MH1SZT with some success. The instructions provided at `davisking/dlib` may also help.
+The following dependencies, among others, are required for facial feature extraction using the functions and classes in `imgphon/imgphon`: `opencv3`, `imutils`, and `dlib`. The dependencies for `dlib` are especially large and complex. We have used the installation instructions for dlib on Unix-type systems at goo.gl/MH1SZT with some success. The instructions provided at `davisking/dlib` may also help.
 
 ### Usage
-Coming soon
+*Coming soon*
 
 ### Demo
 A demonstration of lip shape extraction and dimensionality reduction can be found in lip-demo.ipynb. 
