@@ -1,12 +1,8 @@
+import os, subprocess, csv, glob
 from imutils import face_utils
-from PIL import Image, ImageDraw
-from scipy import ndimage
 import numpy as np
-import imutils
 import dlib
 import cv2
-import os, subprocess, csv, glob
-import matplotlib.pyplot as plt
 
 # instantiate dlib face detector and landmark predictor
 detector = dlib.get_frontal_face_detector()
