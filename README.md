@@ -1,9 +1,12 @@
 # image-pca
-Utilities for feature extraction from, and dimensionality reduction of, video data (including lingual ultrasound video) for data-driven articulatory phonetics analysis. Using scikit-learn and dlib.
+Python toolkit for feature extraction from, and dimensionality reduction of, video and ultrasound for data-driven articulatory phonetic analysis of lip and tongue shapes. Primarily built on `scikit-learn`, `opencv3`, and `dlib`.
 
 # Getting started
-The dependencies for dlib are rather complex. We typically follow these installation instructions:
-https://www.pyimagesearch.com/2017/03/27/how-to-install-dlib/.
+### Installing dependencies
+`opencv3`, `ffmpeg`, and `dlib` are all required. The dependencies for `dlib` are large and rather complex. We have used the installation instructions for Unix-type systems at goo.gl/MH1SZT with some success. The instructions provided at `davisking/dlib` may also help.
 
-# dlib-utils
-The current minimal working example for this set of functions is in the jupyter notebook dlib-basics-92117. Functions in dlib-utils are copied in dlib-utils.py for future convenience.
+### Usage
+Coming soon
+
+### Demo
+A demonstration of lip shape extraction and dimensionality reduction can be found in lip-demo.ipynb. 
