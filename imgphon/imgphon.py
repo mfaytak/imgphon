@@ -10,12 +10,6 @@ from skimage.draw import polygon
 from scipy.ndimage.measurements import center_of_mass
 from scipy.ndimage import zoom
 
-
-# instantiate dlib face detector and landmark predictor
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
-aligner = FaceAligner(predictor, desiredFaceWidth = 256)
-
 def get_video_frame(video, time):
     """
     Return the single frame closest to the given timepoint. Can then run detect_landmarks on the frame.
@@ -40,7 +34,7 @@ def get_video_frame(video, time):
     frame = cv2.imread(output_bmp)
     return frame
 
-def detect_landmarks(my_ndarray, detector=detector, predictor=predictor):
+def detect_landmarks(my_ndarray, detector, predictor):
     """
     Inputs: an ndarray frame output from cv2.VideoCapture object, 
             a detector of choice from dlib,
@@ -51,7 +45,6 @@ def detect_landmarks(my_ndarray, detector=detector, predictor=predictor):
 
     # read in image 
     gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
-    # gray = np.asarray(cv2image, dtype=np.uint8)
     
     # run face detector to get bounding rectangle
     rect = detector(gray, 1)[0]
@@ -62,7 +55,7 @@ def detect_landmarks(my_ndarray, detector=detector, predictor=predictor):
     
     return shape_np
 
-def get_norm_face(my_ndarray, detector=detector, predictor=predictor, aligner=aligner):
+def get_norm_face(my_ndarray, detector, predictor, aligner):
     """
     Inputs: an ndarray frame output from cv2.VideoCapture object, 
             a detector of choice from dlib,
@@ -72,7 +65,7 @@ def get_norm_face(my_ndarray, detector=detector, predictor=predictor, aligner=al
             and a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
     Inspired by code by Adrian Rosebrock.
     """
-    # TODO! build in ability to manually define where the eye is, for cases where the eyes are consistently mis-detected
+    # TODO! build in ability to manually define where eye is, for cases where eyes are consistently mis-detected
     # read in image 
     gray = cv2.cvtColor(my_ndarray, cv2.COLOR_BGR2GRAY)
 
@@ -80,13 +73,9 @@ def get_norm_face(my_ndarray, detector=detector, predictor=predictor, aligner=al
     rect = detector(gray,1)[0]
 
     # align face
-    # TODO fork imutils, change this function to return rotated landmarks used for alignment; 
+    # TODO fork imutils, change this function to rotate and return the landmarks used for alignment; 
     # replace current shape_np
     faceAligned = aligner.align(my_ndarray, gray, rect)
-
-    # (re)run landmark prediction on portion of image in face rectangle; output
-    #shape = predictor(gray, faceAligned)
-    #shape_np = face_utils.shape_to_np(shape)
 
     return faceAligned
     
