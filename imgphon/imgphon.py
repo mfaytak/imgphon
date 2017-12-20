@@ -79,15 +79,45 @@ def get_norm_face(my_ndarray, detector, predictor, aligner):
 
     return faceAligned
     
-def draw_landmarks(my_ndarray, shape, aperture_xy = False, line_width=2):
+def draw_landmarks(my_ndarray, shape, anonymize = False, aperture_xy = False, line_width=2):
     """
     Inputs: an ndarray frame output from cv2.VideoCapture object, and a (68,2) ndarray of x,y coords that dlib detects.
     Outputs: an image with lines drawn over the detected landmarks; useful for testing and visualization.
+    anonymize: if True, also apply a Gaussian blur to the top of the face to remove identifiable features.
     aperture_xy: if True, also draw (next to face) numerical values for x and y diameters of lip aperture.
     """
 
     out_image = my_ndarray.copy()
     lwd = int(line_width)
+
+    if anonymize:
+        # get bottom of box using nose
+        nose_start,nose_end = face_utils.FACIAL_LANDMARKS_IDXS['nose']
+        max_y = max([shape[i][1] for i in range(nose_start, nose_end)])
+
+        # get top of box using eyebrows
+        eyebrows_start = face_utils.FACIAL_LANDMARKS_IDXS['right_eyebrow'][0]
+        eyebrows_end = face_utils.FACIAL_LANDMARKS_IDXS['left_eyebrow'][1]
+        min_y = min([shape[i][1] for i in range(eyebrows_start, eyebrows_end)])
+
+        # get sides of box using jaw
+        jaw_start,jaw_end = face_utils.FACIAL_LANDMARKS_IDXS['jaw']
+        max_x = max([shape[i][0] for i in range(jaw_start, jaw_end)])
+        min_x = min([shape[i][0] for i in range(jaw_start, jaw_end)])
+
+        # pad out the blurred area
+        # TODO change to integer pixel values (will throw error in notebooks)
+        width = max_x - min_x
+        height = max_y - min_y
+        min_y -= 0.4*height
+        min_x -= 0.1*width
+        max_y += 0.1*height
+        max_x += 0.1*width
+
+        # replace the area around the selected landmarks with a blurred version of the area
+        upper_face = out_image[min_y:max_y, min_x:max_x]
+        blur = cv2.GaussianBlur(upper_face,(101, 101), 30)
+        out_image[min_y:min_y+upper_face.shape[0], min_x:min_x+upper_face.shape[1]] = blur
 
     for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
         if name == "mouth":
@@ -124,7 +154,7 @@ def draw_landmarks(my_ndarray, shape, aperture_xy = False, line_width=2):
         except IndexError:
             pt2 = shape[jm+12]
         cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255),lwd)
-        
+
     # add text indicating measured lip aperture in px
     if aperture_xy:
         x,y = get_lip_aperture(shape)
