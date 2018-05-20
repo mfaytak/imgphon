@@ -13,8 +13,8 @@ from scipy.ndimage import zoom
 def get_video_frame(video, time):
     """
     Return the single frame closest to the given timepoint. Can then run detect_landmarks on the frame.
-    Inputs: video - an MXF file; time in seconds - format d.ddd (sec.msec), rounded to three decimal places.
-    Outputs: an ndarray image of the desired frame.
+    Inputs: video - a video file (so far tested on MOV and MXF); time - format d.ddd (sec.msec), up to three decimal places.
+    Outputs: an ndarray of the desired frame, in BGR color space.
     """
     output_bmp = 'temp.bmp'
     try:
