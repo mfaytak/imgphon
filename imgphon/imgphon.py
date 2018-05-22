@@ -40,18 +40,26 @@ def detect_landmarks(frame, detector, predictor):
         a detector of choice from dlib,
         and a dlib face landmark predictor trained on data of choice.
     Outputs:the portion of the image containing the detected face, 
-        and a (68,2) ndarray containing X,Y coordinates for the 68 face points dlib detects.
+        and a (68,2) ndarray containing X,Y coordinates for the 68 
+        face points dlib detects. If no face is detected, an array
+        filled with zeros results; this displays specially in 
+        draw_landmarks.
     """
 
     # read in image 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # run face detector to get bounding rectangle
-    rect = detector(gray, 1)[0]
-    
-    # run landmark prediction on portion of image in face rectangle; output
-    shape = predictor(gray, rect)
-    marks = face_utils.shape_to_np(shape)
+    # TODO catch and warn/pass instances in which a face is not detected
+    try:
+        rect = detector(gray, 1)[0]
+    except IndexError:
+        print("No faces detected in the current frame")
+        marks = np.zeros([68,2], dtype=np.int8)
+    else:
+        # run landmark prediction on portion of image in face rectangle; output
+        shape = predictor(gray, rect)
+        marks = face_utils.shape_to_np(shape)
     
     return marks
 
@@ -163,49 +171,73 @@ def draw_landmarks(frame, marks, anonymize = "none", aperture_xy = False, line_w
     if anonymize != "none":
         out_image = anonymize(out_image,marks,area=anonymize)
 
-    for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
-        if name == "mouth":
-            continue
-        j,k = face_utils.FACIAL_LANDMARKS_IDXS[name]
-        pts = np.array(marks[j:k], dtype=np.uint32)
-        for idx,pt in enumerate(pts):
-            pt1 = pt
-            try:
-                pt2 = pts[idx+1]
-            except IndexError:
-                if name == "left_eye" or name == "right_eye":
-                    pt2 = pts[0]
-                else:
-                    continue
+    # check for non-zero coordinates and handle accordingly
+    if not marks.any():
+        fail_string = "No face found"
+
+        #loc = tuple([int(100), 
+        #             int(out_image.shape[0]/2)])
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        size = 1
+
+        # scale text to be as large as possible
+        while True:
+            text_box_size = cv2.getTextSize(fail_string, font, size+1, 3)[0]
+            if text_box_size[0] > out_image.shape[1]:
+                text_box_size = cv2.getTextSize(fail_string, font, size, 3)[0]
+                break
+            size += 1
+        
+        print(size)
+
+        # center
+        loc_x = int((out_image.shape[1] - text_box_size[0]) / 2)
+        loc_y = int((out_image.shape[0] + text_box_size[1]) / 2)
+        cv2.putText(out_image, fail_string, (loc_x, loc_y), font, size, (255,255,255), 3, cv2.LINE_AA)
+    else:
+        for i,name in enumerate(face_utils.FACIAL_LANDMARKS_IDXS.keys()):
+            if name == "mouth":
+                continue
+            j,k = face_utils.FACIAL_LANDMARKS_IDXS[name]
+            pts = np.array(marks[j:k], dtype=np.uint32)
+            for idx,pt in enumerate(pts):
+                pt1 = pt
+                try:
+                    pt2 = pts[idx+1]
+                except IndexError:
+                    if name == "left_eye" or name == "right_eye":
+                        pt2 = pts[0]
+                    else:
+                        continue
+                cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255), lwd)
+    
+        # drawing the mouth with some more precision
+        # draw most of the outer perimeter of lips
+        jm,km = face_utils.FACIAL_LANDMARKS_IDXS['mouth']
+        for idx in range(jm,jm+11): 
+            pt1 = marks[idx]
+            pt2 = marks[idx+1]
             cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255),lwd)
     
-    # drawing the mouth with some more precision
-    # draw most of the outer perimeter of lips
-    jm,km = face_utils.FACIAL_LANDMARKS_IDXS['mouth']
-    for idx in range(jm,jm+11): 
-        pt1 = marks[idx]
-        pt2 = marks[idx+1]
-        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255),lwd)
+        # draw the last segment for the outer perimiter of lips
+        cv2.line(out_image, tuple(marks[48]), tuple(marks[59]), (255,255,255),lwd)
     
-    # draw the last segment for the outer perimiter of lips
-    cv2.line(out_image, tuple(marks[48]), tuple(marks[59]), (255,255,255),lwd)
-    
-    # draw the inner aperture of the lips
-    for idx in range(jm+12,km):
-        pt1 = marks[idx]
-        try:
-            pt2 = marks[idx+1]
-        except IndexError:
-            pt2 = marks[jm+12]
-        cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255),lwd)
+        # draw the inner aperture of the lips
+        for idx in range(jm+12,km):
+            pt1 = marks[idx]
+            try:
+                pt2 = marks[idx+1]
+            except IndexError:
+                pt2 = marks[jm+12]
+            cv2.line(out_image, tuple(pt1), tuple(pt2), (255,255,255),lwd)
 
-    # add text indicating measured lip aperture in px
-    if aperture_xy:
-        x,y = get_lip_aperture(marks)
-        add_string = "x={}, y={}".format(round(x,1),round(y,1))
-        loc = tuple(np.subtract(marks[4], (200,0)))
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.putText(out_image, add_string, loc, font, 0.8, (255,255,255), 2, cv2.LINE_AA)
+        # add text indicating measured lip aperture in px
+        if aperture_xy:
+            x,y = get_lip_aperture(marks)
+            add_string = "x={}, y={}".format(round(x,1),round(y,1))
+            loc = tuple(np.subtract(marks[4], (200,0)))
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(out_image, add_string, loc, font, 0.8, (255,255,255), 2, cv2.LINE_AA)
         
     return out_image
 
