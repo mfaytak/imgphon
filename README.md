@@ -7,8 +7,9 @@ Files in the `scripts` directory also carry out forced alignment and acoustic an
 ### Installing dependencies
 The following dependencies, among others, are required for facial feature extraction using the functions and classes in `imgphon/imgphon`: `opencv3`, `imutils`, and `dlib`. The dependencies for `dlib` are especially large and complex. We have used the installation instructions for dlib on Unix-type systems at bit.ly/2HEhCQP with some success. The instructions provided at `davisking/dlib` may also help.
 
+### Demos
+A demonstration of lip shape extraction and dimensionality reduction can be found in **lip-demo.ipynb**. A demonstration of some tools for extracting and processing ultrasound video frames from the Telemed EchoBlaster's binary outputs can be found in **echob-data-demo.ipynb**. Use of these extracted features for analysis coming soon. 
+
 ### Usage
 *Coming soon*
 
-### Demo
-A demonstration of lip shape extraction and dimensionality reduction can be found in lip-demo.ipynb. Use of these extracted features for analysis coming soon.
