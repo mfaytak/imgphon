@@ -91,7 +91,7 @@ def srad(frame, n_iter=300, lbda=0.05):
 
     return J
 
-def clean_frame(frame, median_radius=5, log_sigma=4):
+def clean_frame(frame, median_radius=10, log_sigma=6):
     """
     Cleanup function to be run on SRAD output. Median filter for
       further denoising, followed by edge sharpening with a Laplacian 
@@ -104,22 +104,46 @@ def clean_frame(frame, median_radius=5, log_sigma=4):
       
     """
 
-    # TODO scaling results in some inputs being coerced to all-zero arrays
-    # uncomment when fixed
-    # frame = normalize(frame)
-
     # TODO provide default for median_radius that is 
     #   sensitive to image dimensions
 
-    frame = frame.astype(np.int64)
     medfilt = median_filter(frame, median_radius)
     logmask = gaussian_laplace(medfilt, log_sigma)
     cleaned = medfilt + logmask
-    cleaned = cleaned.astype(np.uint8)
     
     return cleaned
 
-# TODO: frame bundling (possibly from Exp object, at a later date?)
+def roi_mask(frame, spam):
+    """
+    TODO Defines region of interest in a set of ultrasound images (not 
+      necessarily sequential) and returns a mask that blanks out 
+      content beyond this region. RoI is rectangular in raw data, and
+      thus bounded by two arcs across scan-converted data.
+    """
+    pass
+
+"""
+RoI pseudocode (frame, manual=False, convert=False):
+
+    for each unconverted frame in an experiment:
+        grab the frame and put it in an array
+        
+    flatten the array to produce a heatmap
+
+    if manual:
+        bring up the heatmap in a window and let the user select the RoI as a slice of rows
+    else:
+        automatically generate the RoI using image processing stuff
+
+    generate a RoI mask based on selected RoI
+
+    if convert:
+        RoI mask gets converted into fan shape
+
+    return RoI
+"""
+
+# TODO: group frames into training/test from a PD DataFrame
 
 # TODO: PCA on arrays in short dimension (ideally, on frame bundles) - linked DataFrame?
 

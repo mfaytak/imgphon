@@ -1,0 +1,2 @@
+Width	Height	Pitch	nInBufferLen	nOutBufferLen
+984	127	1020	129540	1048576
