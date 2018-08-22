@@ -2,5 +2,8 @@ __pycache__/
 .ipynb_checkpoints/
 *.swp
 *.swo
+*.swn
 
 .DS_Store
+
+sandbox.ipynb

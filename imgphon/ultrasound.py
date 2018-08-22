@@ -110,17 +110,34 @@ def clean_frame(frame, median_radius=10, log_sigma=6):
     medfilt = median_filter(frame, median_radius)
     logmask = gaussian_laplace(medfilt, log_sigma)
     cleaned = medfilt + logmask
+
+    # TODO prevent "overflows" that arise from running on non-float data
     
     return cleaned
 
-def roi_mask(frame, spam):
+def roi_select(frame, lower, upper):
     """
-    TODO Defines region of interest in a set of ultrasound images (not 
-      necessarily sequential) and returns a mask that blanks out 
-      content beyond this region. RoI is rectangular in raw data, and
-      thus bounded by two arcs across scan-converted data.
+    Defines region of interest along ultrasound scan lines; returns 
+      frame with content outside of this region removed. RoI is 
+      rectangular in raw data, and thus bounded by two arcs in scan- 
+      converted data.
+
+    Inputs: 
+      frame: ultrasound data in ndarray
+      lower: bound of RoI closer to probe
+      upper: bound of RoI further away from probe
+
+    Outputs: 
+      region: frame containing data only in region of interest
+
+    TODO add bgcolor parameter
     """
-    pass
+    if lower >= upper:
+        raise ValueError("ROI lower bound must be below upper bound")
+    region = np.zeros(td.shape, dtype=td.dtype)
+    region[lower:upper,:] = td[lower:upper,:]
+    
+    return region
 
 """
 RoI pseudocode (frame, manual=False, convert=False):
