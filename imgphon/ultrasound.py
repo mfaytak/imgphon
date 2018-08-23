@@ -107,10 +107,13 @@ def clean_frame(frame, median_radius=10, log_sigma=6):
     # TODO provide default for median_radius that is 
     #   sensitive to image dimensions
 
+    if not np.issubdtype(frame.dtype, np.float):
+        raise TypeError("Input arrays must contain floats")
+
     medfilt = median_filter(frame, median_radius)
     logmask = gaussian_laplace(medfilt, log_sigma)
-    cleaned = medfilt + logmask
-
+    cleaned = medfilt - logmask
+    
     # TODO prevent "overflows" that arise from running on non-float data
     
     return cleaned
@@ -118,7 +121,7 @@ def clean_frame(frame, median_radius=10, log_sigma=6):
 def roi_select(frame, lower, upper):
     """
     Defines region of interest along ultrasound scan lines; returns 
-      frame with content outside of this region removed. RoI is 
+      frame with content outside of this region. RoI is 
       rectangular in raw data, and thus bounded by two arcs in scan- 
       converted data.
 
@@ -134,8 +137,9 @@ def roi_select(frame, lower, upper):
     """
     if lower >= upper:
         raise ValueError("ROI lower bound must be below upper bound")
-    region = np.zeros(td.shape, dtype=td.dtype)
-    region[lower:upper,:] = td[lower:upper,:]
+
+    region = np.zeros(frame.shape, dtype=frame.dtype)
+    region[lower:upper,:] = frame[lower:upper,:]
     
     return region
 
