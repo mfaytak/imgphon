@@ -110,11 +110,14 @@ def clean_frame(frame, median_radius=10, log_sigma=6):
     if not np.issubdtype(frame.dtype, np.float):
         raise TypeError("Input arrays must contain floats")
 
-    medfilt = median_filter(frame, median_radius)
-    logmask = gaussian_laplace(medfilt, log_sigma)
-    cleaned = medfilt - logmask
-    
-    # TODO prevent "overflows" that arise from running on non-float data
+    # median filter
+    cleaned = median_filter(frame, median_radius)
+
+    # add LoG, protecting against integer overflow
+    logmask = gaussian_laplace(cleaned, log_sigma)
+    logmask = 255 - logmask
+    np.putmask(cleaned, logmask < cleaned, logmask)
+    cleaned += 255 - logmask
     
     return cleaned
 
@@ -134,6 +137,8 @@ def roi_select(frame, lower, upper):
       region: frame containing data only in region of interest
 
     TODO add bgcolor parameter
+    TODO add converter option (import ultratils)
+    TODO manual selection of lower, upper based on heatmap
     """
     if lower >= upper:
         raise ValueError("ROI lower bound must be below upper bound")
@@ -142,27 +147,6 @@ def roi_select(frame, lower, upper):
     region[lower:upper,:] = frame[lower:upper,:]
     
     return region
-
-"""
-RoI pseudocode (frame, manual=False, convert=False):
-
-    for each unconverted frame in an experiment:
-        grab the frame and put it in an array
-        
-    flatten the array to produce a heatmap
-
-    if manual:
-        bring up the heatmap in a window and let the user select the RoI as a slice of rows
-    else:
-        automatically generate the RoI using image processing stuff
-
-    generate a RoI mask based on selected RoI
-
-    if convert:
-        RoI mask gets converted into fan shape
-
-    return RoI
-"""
 
 # TODO: group frames into training/test from a PD DataFrame
 
