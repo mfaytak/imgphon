@@ -3,12 +3,25 @@ from scipy.ndimage import median_filter
 from scipy.ndimage.filters import gaussian_laplace
 
 def normalize(frame):
-    ''' Normalize input image to range [0,1]. TODO more descriptive name? '''
+    """
+    Normalize input image to range [0,1].
+    """
     mx = float(np.amax(frame))
     mn = float(np.amin(frame))
     norm = (frame-mn)/(mx-mn)
 
     return norm
+
+def norm_check(frame):
+    """
+    Check if a frame consists of floats normalized on 0,1.
+    """
+    if not np.issubdtype(frame.dtype, np.float):
+        raise TypeError("Input data must be float arrays")
+
+    if not (frame >= 0.).all() and (frame <= 1.).all():
+        raise ValueError("Input data must be normalized to range 0,1")
+
 
 def srad(frame, n_iter=300, lbda=0.05):
     '''
@@ -91,7 +104,7 @@ def srad(frame, n_iter=300, lbda=0.05):
 
     return J
 
-def clean_frame(frame, median_radius=10, log_sigma=6):
+def clean_frame(frame, median_radius=6, log_sigma=4):
     """
     Cleanup function to be run on SRAD output. Median filter for
       further denoising, followed by edge sharpening with a Laplacian 
@@ -107,24 +120,24 @@ def clean_frame(frame, median_radius=10, log_sigma=6):
     # TODO provide default for median_radius that is 
     #   sensitive to image dimensions
 
-    if not np.issubdtype(frame.dtype, np.float):
-        raise TypeError("Input arrays must contain floats")
+    norm_check(frame)
 
     # median filter
     cleaned = median_filter(frame, median_radius)
 
-    # add LoG, protecting against integer overflow
+    # add LoG, protecting against overflow
     logmask = gaussian_laplace(cleaned, log_sigma)
-    logmask = 255 - logmask
+    frame_ceil = np.finfo(frame.dtype).max
+    logmask = frame_ceil - logmask
     np.putmask(cleaned, logmask < cleaned, logmask)
-    cleaned += 255 - logmask
+    cleaned += frame_ceil - logmask
     
     return cleaned
 
 def roi_select(frame, lower, upper):
     """
     Defines region of interest along ultrasound scan lines; returns 
-      frame with content outside of this region. RoI is 
+      frame without content outside of this region. RoI is 
       rectangular in raw data, and thus bounded by two arcs in scan- 
       converted data.
 
@@ -136,9 +149,9 @@ def roi_select(frame, lower, upper):
     Outputs: 
       region: frame containing data only in region of interest
 
-    TODO add bgcolor parameter
-    TODO add converter option (import ultratils)
-    TODO manual selection of lower, upper based on heatmap
+    TODO add bgcolor 
+    TODO make bool mask convertable with ultratils Converter
+    TODO manual selection of lower, upper based on heatmap of avg.
     """
     if lower >= upper:
         raise ValueError("ROI lower bound must be below upper bound")
