@@ -4,7 +4,7 @@ from scipy.ndimage.filters import gaussian_laplace
 
 def normalize(frame):
     """
-    Normalize input image to range [0,1].
+    Normalize input image to range 0,1 and cast to float.
     """
     mx = float(np.amax(frame))
     mn = float(np.amin(frame))
@@ -134,32 +134,48 @@ def clean_frame(frame, median_radius=6, log_sigma=4):
     
     return cleaned
 
-def roi_select(frame, lower, upper):
+def noise_mask(frame):
     """
-    Defines region of interest along ultrasound scan lines; returns 
-      frame without content outside of this region. RoI is 
-      rectangular in raw data, and thus bounded by two arcs in scan- 
-      converted data.
+    TODO - expects normed, but before SRAD
+    Adds random noise to an image. Possible processing step
+      to be carried out before SRAD.
+    Inputs:
+      frame - ultrasound image
+    Outputs:
+      noised - ultrasound image with added random noise
+    """
+    
+    norm_check(frame)
+
+    noisemask = np.random.random_sample(0, 1, size=frame.shape)
+    noised = frame + noise_mask # TODO truncate so no > 1
+
+
+    return noised
+
+def roi(frame, lower, upper):
+    """
+    Defines region of interest along ultrasound scan lines; returns
+      boolean array in which 1 indicates an area inside the RoI
+      and 0 outside the RoI. Can be multiplied with frame to mask.
 
     Inputs: 
       frame: ultrasound data in ndarray
       lower: bound of RoI closer to probe
       upper: bound of RoI further away from probe
 
-    Outputs: 
-      region: frame containing data only in region of interest
+    Outputs:
+      mask: ndarray of same shape as frame containing mask
 
-    TODO add bgcolor 
-    TODO make bool mask convertable with ultratils Converter
-    TODO manual selection of lower, upper based on heatmap of avg.
     """
+
     if lower >= upper:
         raise ValueError("ROI lower bound must be below upper bound")
 
-    region = np.zeros(frame.shape, dtype=frame.dtype)
-    region[lower:upper,:] = frame[lower:upper,:]
-    
-    return region
+    mask = np.zeros(frame.shape, dtype=frame.dtype)
+    mask[lower:upper,:] = 1
+
+    return mask
 
 # TODO: group frames into training/test from a PD DataFrame
 
