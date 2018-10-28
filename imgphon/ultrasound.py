@@ -153,7 +153,7 @@ def noise_mask(frame):
 
     return noised
 
-def roi(frame, lower, upper):
+def roi(frame, lower, upper, left, right):
     """
     Defines region of interest along ultrasound scan lines; returns
       boolean array in which 1 indicates an area inside the RoI
@@ -161,8 +161,9 @@ def roi(frame, lower, upper):
 
     Inputs: 
       frame: ultrasound data in ndarray
-      lower: bound of RoI closer to probe
-      upper: bound of RoI further away from probe
+      lower: bound of RoI further away from probe 
+      upper: bound of RoI closer to probe
+      left:
 
     Outputs:
       mask: ndarray of same shape as frame containing mask
@@ -170,10 +171,12 @@ def roi(frame, lower, upper):
     """
 
     if lower >= upper:
-        raise ValueError("ROI lower bound must be below upper bound")
+        raise ValueError("ROI lower bound must be smaller than upper bound")
+    if left >= right:
+        raise ValueError("ROI left bound must be smaller than right bound")
 
     mask = np.zeros(frame.shape, dtype=frame.dtype)
-    mask[lower:upper,:] = 1
+    mask[lower:upper,left:right] = 1
 
     return mask
 
