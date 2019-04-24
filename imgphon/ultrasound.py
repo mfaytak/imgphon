@@ -180,6 +180,35 @@ def roi(frame, lower, upper, left, right):
 
     return mask
 
+def reconstruct_frame(vectors, values, num_components, image_shape):
+    '''
+    Access eigenvalues (from transformed data) and eigenvectors (from PCA) to reconstruct basis data
+    Assuming a sklearn.decomposition.PCA object called "pca" and some basis data, inputs are:
+      vectors: Eigenvectors, from pca.components_
+      values: Eigenvalues for a token in basis data, AKA a first-level element in output of pca.transform(basisdata). 
+              Can also use on subsets (multiple tokens) of data, in which case mean of each eigenvalue is used.
+      num_components: Number of PCs, from pca.n_components.
+      image_shape: The height and width of the images in the basis data (i.e., a tuple from basisdata[0].shape).
+              Determines the dimensions of the "eigentongues" used in reconstruction.
+    '''
+    # for a given number of eigenvectors
+    # multiply each by its eigenvalues
+    if values.ndim > 1:
+        rec_values = np.mean(values, axis=0)
+    else:
+        rec_values = values
+    print(rec_values)
+        
+    unscaled = None
+    
+    for pc in range(num_components):
+        if unscaled is None:
+            unscaled = vectors[pc].reshape(image_shape) * rec_values[pc]
+        else:
+            unscaled += vectors[pc].reshape(image_shape) * rec_values[pc]
+            
+    return 255 * unscaled
+
 # TODO: group frames into training/test from a PD DataFrame
 
 # TODO: PCA on arrays in short dimension (ideally, on frame bundles) - linked DataFrame?
