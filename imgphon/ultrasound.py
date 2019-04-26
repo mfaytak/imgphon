@@ -197,7 +197,6 @@ def reconstruct_frame(vectors, values, num_components, image_shape):
         rec_values = np.mean(values, axis=0)
     else:
         rec_values = values
-    print(rec_values)
         
     unscaled = None
     
