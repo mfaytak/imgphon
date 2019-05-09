@@ -4,7 +4,6 @@ import numpy as np
 import dlib
 import cv2
 import imutils
-import easygui
 from imutils.face_utils import FaceAligner
 from imutils.face_utils import rect_to_bb
 from skimage.draw import polygon
