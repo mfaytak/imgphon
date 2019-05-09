@@ -9,7 +9,6 @@ import easygui
 
 import imgphon
 
-
 def interface(windowName, canvas, tp, frame_index, file_name, result_dict, clicks_list, working_dir, sort_fn, label_num_constr: int, ext):
     output_imgs_dir = "output_imgs"
 
