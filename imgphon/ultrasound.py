@@ -16,7 +16,7 @@ def norm_check(frame):
     """
     Check if a frame consists of floats normalized on 0,1.
     """
-    if not np.issubdtype(frame.dtype, np.float):
+    if not np.issubdtype(frame.dtype, np.floating):
         raise TypeError("Input data must be float arrays")
 
     if not (frame >= 0.).all() and (frame <= 1.).all():
