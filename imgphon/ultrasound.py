@@ -88,8 +88,7 @@ def srad(frame, n_iter=300, lbda=0.05):
         c = 1 / (den + 1)
 
         # saturate diffusion coefficient 
-        c[np.where(c<0)] = 0 # negative = FALSE
-        c[np.where(c>0)] = 1 # positive = TRUE
+        c = np.where(c>0, 1, 0)
 
         # divergence (eqn. 58)
         cS = c[iS,:] 
