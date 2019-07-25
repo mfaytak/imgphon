@@ -1,11 +1,18 @@
-import os, subprocess, csv, glob
-from imutils import face_utils
-import numpy as np
-import dlib
+'''
+Functions for facial landmark detection, intended for automatically segmenting lips from frontal images,
+  normalizing images, and visualizing the results.
+'''
+
+import csv
 import cv2
-import imutils
+import dlib
+import glob
+import os
+import numpy as np
+import subprocess
+
+from imutils import face_utils
 from imutils.face_utils import FaceAligner
-from imutils.face_utils import rect_to_bb
 from skimage.draw import polygon
 from scipy.ndimage.measurements import center_of_mass
 from scipy.ndimage import zoom

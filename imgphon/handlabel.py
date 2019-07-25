@@ -1,13 +1,17 @@
-import os
-import sys
-import re
-import contextlib
+'''
+Functions defining the hand-labeling GUI (see ../scripts/liplabeler.py for usage examples).
+Primary credit: Shunjie Wang, 2019.
+'''
 
-import numpy as np
+import contextlib
 import cv2
 import easygui
-
 import imgphon
+import re
+import os
+import sys
+
+import numpy as np
 
 def interface(windowName, canvas, tp, frame_index, file_name, result_dict, clicks_list, working_dir, sort_fn, label_num_constr: int, ext):
     output_imgs_dir = "output_imgs"
@@ -87,6 +91,7 @@ def label_multiple(start_pt: int, tp_list: list, vid_path: str, result_dict: dic
         result_dict = new_result_dict
         tp_index += 1
 
+# TODO expand beyond this fixed arrangement of lip coords
 
 def sort_lip_coords(tmp_l):
     def take_x(elem):

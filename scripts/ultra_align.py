@@ -6,7 +6,9 @@ it generates and stores in plaintext files a subject-specific list of audio file
 you left off, if you choose to stop execution of the script and come back later.
 '''
 
-import os, sys, glob
+import glob
+import os
+import sys
 
 def usage():
     print("Usage: python align_progress.py [subject directory]")

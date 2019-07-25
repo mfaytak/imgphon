@@ -1,7 +1,13 @@
-import os
-from scipy import ndimage
-import numpy as np
+'''
+Functions and classes which define an image segmentation-based approach to "removing" an ultrasound
+helmet from frontal images. Intended for use along with facial landmark detection utilities (./landmark.py).
+'''
+
 import cv2
+import numpy as np
+import os
+
+from scipy import ndimage
 
 class CheekpadSegment:
     """ CheekpadSegment object that mediates finding and removing of cheekpads.

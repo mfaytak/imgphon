@@ -171,4 +171,3 @@ if args.visualize:
         plt.imshow(pcn, cmap="Greys_r") 
         savepath = "subj5-pc{:}.pdf".format(n+1)
         plt.savefig(savepath)
-

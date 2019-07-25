@@ -3,6 +3,7 @@ __pycache__/
 *.swp
 *.swo
 *.swn
+build/
 
 .DS_Store
 

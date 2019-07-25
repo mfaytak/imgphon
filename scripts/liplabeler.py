@@ -1,10 +1,16 @@
-import os
-import sys
-import re
-import contextlib
+'''
+liplabeler.py: collect hand-labeled lip and lip aperture shape information from frontal video of
+  the face. Outputs tabular data.
+  TODO: improved documentation.
+Primary credit: Shunjie Wang, 2019
+'''
 
-import numpy as np
+import contextlib
 import easygui
+import numpy as np
+import os
+import re
+import sys
 
 from handlabel import *
 

@@ -1,4 +1,10 @@
+'''
+Filters for preprocessing lingual ultrasound data for dimensionality reduction.
+  TODO: include generalized dimensionality reduction utilities here.
+'''
+
 import numpy as np
+
 from scipy.ndimage import median_filter
 from scipy.ndimage.filters import gaussian_laplace
 
